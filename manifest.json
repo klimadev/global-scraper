@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Global Scraper",
-  "version": "0.1.0",
-  "description": "Extrai anúncios de marketplaces (atualmente OLX) com opções configuráveis",
+  "version": "0.2.0",
+  "description": "Extrai anúncios de múltiplos marketplaces (OLX, Mercado Livre e mais) com interface adaptativa",
   "permissions": [
     "activeTab",
     "storage",
@@ -13,7 +13,8 @@
     "*://*.olx.com.br/*"
   ],
   "background": {
-    "service_worker": "background.js"
+    "service_worker": "background.js",
+    "type": "module"
   },
   "action": {
     "default_popup": "popup/popup.html",
@@ -28,5 +29,9 @@
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
-  }
+  },
+  "web_accessible_resources": [{
+    "resources": ["core/*.js", "platforms/*.js"],
+    "matches": ["<all_urls>"]
+  }]
 }

@@ -1,0 +1,133 @@
+{
+  "version": "1.0.0",
+  "lastScanned": 1784675566157,
+  "projectRoot": "/var/www/global-scraper",
+  "techStack": {
+    "languages": [],
+    "frameworks": [],
+    "packageManager": null,
+    "runtime": null
+  },
+  "build": {
+    "buildCommand": null,
+    "testCommand": null,
+    "lintCommand": null,
+    "devCommand": null,
+    "scripts": {}
+  },
+  "conventions": {
+    "namingStyle": null,
+    "importStyle": null,
+    "testPattern": null,
+    "fileOrganization": null
+  },
+  "structure": {
+    "isMonorepo": false,
+    "workspaces": [],
+    "mainDirectories": [],
+    "gitBranches": {
+      "defaultBranch": "main",
+      "branchingStrategy": null
+    }
+  },
+  "customNotes": [],
+  "directoryMap": {
+    "icons": {
+      "path": "icons",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1784675566148,
+      "keyFiles": [
+        "icon128.png",
+        "icon16.png",
+        "icon48.png"
+      ]
+    },
+    "popup": {
+      "path": "popup",
+      "purpose": null,
+      "fileCount": 3,
+      "lastAccessed": 1784675566149,
+      "keyFiles": [
+        "popup.css",
+        "popup.html",
+        "popup.js"
+      ]
+    }
+  },
+  "hotPaths": [
+    {
+      "path": "content.js",
+      "accessCount": 4,
+      "lastAccessed": 1784676842575,
+      "type": "file"
+    },
+    {
+      "path": "platforms/olx.js",
+      "accessCount": 3,
+      "lastAccessed": 1784677009602,
+      "type": "file"
+    },
+    {
+      "path": "popup/popup.js",
+      "accessCount": 3,
+      "lastAccessed": 1784677018213,
+      "type": "file"
+    },
+    {
+      "path": "olx-scraper.js",
+      "accessCount": 2,
+      "lastAccessed": 1784676743865,
+      "type": "file"
+    },
+    {
+      "path": "background.js",
+      "accessCount": 2,
+      "lastAccessed": 1784676843854,
+      "type": "file"
+    },
+    {
+      "path": "popup/popup.html",
+      "accessCount": 2,
+      "lastAccessed": 1784676925340,
+      "type": "file"
+    },
+    {
+      "path": "popup/popup.css",
+      "accessCount": 2,
+      "lastAccessed": 1784676926654,
+      "type": "file"
+    },
+    {
+      "path": "manifest.json",
+      "accessCount": 2,
+      "lastAccessed": 1784676952062,
+      "type": "file"
+    },
+    {
+      "path": "version.txt",
+      "accessCount": 2,
+      "lastAccessed": 1784677990021,
+      "type": "file"
+    },
+    {
+      "path": "platforms/base.js",
+      "accessCount": 1,
+      "lastAccessed": 1784676718317,
+      "type": "file"
+    },
+    {
+      "path": "core/registry.js",
+      "accessCount": 1,
+      "lastAccessed": 1784676719514,
+      "type": "file"
+    },
+    {
+      "path": "core/engine.js",
+      "accessCount": 1,
+      "lastAccessed": 1784676720901,
+      "type": "file"
+    }
+  ],
+  "userDirectives": []
+}

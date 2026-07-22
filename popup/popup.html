@@ -3,24 +3,21 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OLX Scraper</title>
+  <title>Global Scraper</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div id="app">
-    <!-- Header -->
     <div class="header">
-      <h1>OLX Scraper</h1>
-      <span class="version">v0.1.0</span>
+      <h1><span id="platform-icon">🌐</span> <span id="platform-name">Global Scraper</span></h1>
+      <span class="version" id="platform-version">v0.1.0</span>
     </div>
 
-    <!-- Error: not on OLX -->
-    <div id="not-olx" class="state-msg hidden">
+    <div id="state-unsupported" class="state-msg hidden">
       <span class="icon">⚠️</span>
-      <p>Navegue para uma página de busca do OLX para usar a extensão.</p>
+      <p id="unsupported-msg">Navegue para uma página de busca compatível.</p>
     </div>
 
-    <!-- === STATE: IDLE (formulário) === -->
     <div id="state-idle" class="state">
       <form id="scrape-form">
         <div class="form-row">
@@ -33,11 +30,10 @@
             <input type="number" id="offset" min="0" value="0">
           </div>
         </div>
-
         <div class="form-row">
           <div class="field">
             <label for="batchSize">Lote</label>
-            <input type="number" id="batchSize" min="1" value="20" data-default="20">
+            <input type="number" id="batchSize" min="1" value="20">
           </div>
           <div class="field">
             <label for="timeout">Timeout (ms)</label>
@@ -50,7 +46,6 @@
             </label>
           </div>
         </div>
-
         <div class="error-msg hidden" id="form-error"></div>
         <button type="submit" id="btn-extract" class="btn-primary">Extrair</button>
       </form>
@@ -61,11 +56,10 @@
       </details>
     </div>
 
-    <!-- === STATE: SCRAPING (progresso) === -->
     <div id="state-scraping" class="state hidden">
       <div class="progress-section">
         <div class="spinner"></div>
-        <p class="progress-text">Extraindo anúncios...</p>
+        <p class="progress-text" id="progress-text">Extraindo...</p>
         <div class="progress-bar-wrapper">
           <div class="progress-bar" id="progress-bar"></div>
         </div>
@@ -73,12 +67,11 @@
       </div>
     </div>
 
-    <!-- === STATE: COMPLETE (resultados) === -->
     <div id="state-complete" class="state hidden">
       <div class="result-section">
         <div class="result-header">
           <span class="icon">✅</span>
-          <p class="result-count" id="result-count">0 anúncios extraídos</p>
+          <p class="result-count" id="result-count">0 resultados</p>
         </div>
         <div class="result-actions">
           <button id="btn-download" class="btn-primary">Download JSON</button>
@@ -88,20 +81,13 @@
         <p class="copy-feedback hidden" id="copy-feedback">Copiado!</p>
         <div class="preview" id="preview">
           <table>
-            <thead>
-              <tr>
-                <th>Título</th>
-                <th>Preço</th>
-                <th>Local</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Título</th><th>Preço</th><th>Local</th></tr></thead>
             <tbody id="preview-body"></tbody>
           </table>
         </div>
       </div>
     </div>
 
-    <!-- === STATE: ERROR === -->
     <div id="state-error" class="state hidden">
       <div class="error-section">
         <span class="icon">❌</span>

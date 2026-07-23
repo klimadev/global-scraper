@@ -5,9 +5,10 @@ let port = null
 let lastResults = null
 
 const $ = (id) => document.getElementById(id)
-const show = (el) => el.classList.remove('hidden')
-const hide = (el) => el.classList.add('hidden')
+const show = (el) => { if (el) el.hidden = false }
+const hide = (el) => { if (el) el.hidden = true }
 
+const app = $('app')
 const form = $('scrape-form')
 const btnExtract = $('btn-extract')
 const formError = $('form-error')
@@ -19,8 +20,10 @@ const stateScraping = $('state-scraping')
 const stateComplete = $('state-complete')
 const stateError = $('state-error')
 
+const brandChip = $('brand-chip')
 const platformIcon = $('platform-icon')
 const platformName = $('platform-name')
+const platformVersion = $('platform-version')
 const progressBar = $('progress-bar')
 const progressCount = $('progress-count')
 const progressText = $('progress-text')
@@ -28,6 +31,21 @@ const resultCount = $('result-count')
 const previewBody = $('preview-body')
 const errorMessage = $('error-message')
 const copyFeedback = $('copy-feedback')
+
+// ── Brand theming ───────────────────────────────────────
+// Derive the accent ramp from the detected platform's seed and inject on #app.
+function applyBrand(seed) {
+  if (!seed) return
+  const { l, c, h } = seed
+  app.style.setProperty('--brand-h', String(h))
+  app.style.setProperty('--brand', `oklch(${l} ${c} ${h})`)
+  app.style.setProperty('--brand-strong', `oklch(${Math.max(0.15, l - 0.08)} ${c} ${h})`)
+  app.style.setProperty('--brand-press', `oklch(${Math.max(0.12, l - 0.14)} ${Math.max(0, c - 0.01)} ${h})`)
+  const softL = Math.min(0.97, l + 0.46)
+  app.style.setProperty('--brand-soft', `oklch(${softL} ${Math.max(0.02, c * 0.13)} ${h})`)
+  const faintL = Math.min(0.99, l + 0.49)
+  app.style.setProperty('--brand-faint', `oklch(${faintL} ${Math.max(0.01, c * 0.07)} ${h})`)
+}
 
 // ── Form validation ─────────────────────────────────────
 function getOptions() {
@@ -59,18 +77,29 @@ function setUIState(s) {
     case STATE.COMPLETE: show(stateComplete); break
     case STATE.ERROR: show(stateError); break
   }
+  app.dataset.state = s
 }
 
 function onProgress(phase, done, total) {
-  const pct = total > 0 ? Math.min(100, Math.round((done / total) * 100)) : 0
-  progressBar.style.width = pct + '%'
-  progressCount.textContent = `${done} / ${total}`
-  progressText.textContent = phase === 'collect' ? 'Coletando anúncios...' : 'Buscando detalhes...'
+  const finiteTotal = Number.isFinite(total) && total > 0 ? total : null
+  const pb = document.getElementById('progress-bar') || progressBar
+  if (finiteTotal) {
+    const pct = Math.min(100, Math.round((done / finiteTotal) * 100))
+    pb.classList.remove('indeterminate')
+    pb.style.width = pct + '%'
+    progressCount.textContent = `${done} / ${finiteTotal}`
+  } else {
+    pb.classList.add('indeterminate')
+    pb.style.width = ''
+    progressCount.textContent = String(done)
+  }
+  progressText.textContent = phase === 'collect' ? 'Coletando anúncios…' : 'Buscando detalhes…'
 }
 
 function onComplete(results) {
   lastResults = results
-  resultCount.textContent = `${results.length} resultado${results.length !== 1 ? 's' : ''}`
+  const n = results.length
+  resultCount.textContent = `${n} resultado${n !== 1 ? 's' : ''}`
   renderPreview(results)
   setUIState(STATE.COMPLETE)
 }
@@ -96,9 +125,20 @@ function onError(msg) {
 
 // ── Port communication ──────────────────────────────────
 function connectPort() {
-  port = chrome.runtime.connect({ name: 'scraper' })
+  try {
+    port = chrome.runtime.connect({ name: 'scraper' })
+  } catch {
+    port = null
+    return
+  }
   port.onMessage.addListener((msg) => {
     if (msg.type === 'history') { renderHistory(msg.entries); return }
+    if (msg.type === 'historyData') {
+      const e = msg.entry
+      if (!e || !e.data) { onError('Histórico não encontrado ou sem dados.') }
+      else { onComplete(e.data) }
+      return
+    }
     if (msg.type !== 'update') return
     const s = msg.state
     switch (s.status) {
@@ -119,8 +159,11 @@ form.addEventListener('submit', async (e) => {
   const opts = getOptions()
   if (!opts) return
   btnExtract.disabled = true
-  try { port.postMessage({ type: 'start', options: opts }) }
-  catch { onError('Erro ao conectar com o background.') }
+  try {
+    if (!port) connectPort()
+    if (port) port.postMessage({ type: 'start', options: opts })
+    else onError('Erro ao conectar com o background.')
+  } catch { onError('Erro ao conectar com o background.') }
   btnExtract.disabled = false
 })
 
@@ -146,39 +189,82 @@ $('btn-retry').addEventListener('click', () => { setUIState(STATE.IDLE); form.di
 $('history-list').addEventListener('click', (e) => {
   const btn = e.target.closest('[data-act]')
   if (!btn) return
-  if (btn.dataset.act === 'del' && port) port.postMessage({ type: 'deleteHistory', id: btn.dataset.id })
+  const id = btn.dataset.id
+  if (btn.dataset.act === 'del') {
+    if (!port) connectPort()
+    if (port) {
+      port.postMessage({ type: 'deleteHistory', id })
+      btn.closest('.history-item')?.remove()
+    }
+  } else if (btn.dataset.act === 'open') {
+    openHistory(id)
+  }
 })
 
 function renderHistory(entries) {
   const list = $('history-list')
-  if (!entries.length) { list.innerHTML = '<p class="empty" style="color:#888;font-size:12px">Nenhum resultado anterior.</p>'; return }
+  if (!entries.length) {
+    list.innerHTML = '<p class="empty">Nenhum resultado anterior.</p>'
+    return
+  }
   list.innerHTML = entries.map(e =>
     `<div class="history-item">
       <div class="hi-info">
-        <span class="hi-count">${e.count} itens</span>
-        <span class="hi-goal">${e.platform} • ${new Date(e.timestamp).toLocaleString()}</span>
+        <button data-act="open" data-id="${esc(e.id || '')}" class="hi-open">
+          <span class="hi-count">${e.count} itens</span>
+          <span class="hi-goal">${esc(e.platform || '')} ${e.goal !== undefined ? `· meta ${e.goal}` : ''} • ${new Date(e.timestamp).toLocaleString('pt-BR')}</span>
+        </button>
       </div>
       <div class="hi-actions">
-        <button data-act="del" data-id="${e.id}" class="btn-secondary">Excluir</button>
+        <button data-act="del" data-id="${esc(e.id || '')}" class="btn btn--secondary" title="Excluir">⨯</button>
       </div>
     </div>`
   ).join('')
 }
 
+// Re-open a past extraction: pull its full data and render in complete state.
+function openHistory(id) {
+  if (!port) connectPort()
+  if (!port) { onError('Background não respondeu.'); return }
+  port.postMessage({ type: 'getHistoryData', id })
+  progressText.textContent = 'Carregando histórico…'
+  setUIState(STATE.SCRAPING)
+}
+
+// ── Persist + restore last-used parameters ───────────────
+const FIELDS = ['goal', 'offset', 'batchSize', 'timeout']
+function loadOptions() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get({ lastOptions: {} }, ({ lastOptions }) => {
+      for (const id of FIELDS) {
+        const el = $(id)
+        if (el && lastOptions[id] !== undefined) el.value = lastOptions[id]
+      }
+      if (lastOptions.minimal === false) $('minimal').checked = false
+      resolve()
+    })
+  })
+}
+
 // ── Init ─────────────────────────────────────────────────
 (async function init() {
   connectPort()
+  loadOptions()
 
   const tab = (await chrome.tabs.query({ active: true, currentWindow: true }))[0]
   const url = tab?.url || ''
 
-  const { registry } = await import(chrome.runtime.getURL('core/registry.js'))
-  await import(chrome.runtime.getURL('platforms/olx.js'))
-  const adapter = registry.detect(url)
+  let adapter = null
+  try {
+    const { registry } = await import(chrome.runtime.getURL('core/registry.js'))
+    await import(chrome.runtime.getURL('platforms/olx.js'))
+    adapter = registry.detect(url)
+  } catch { /* registry unavailable */ }
 
   if (adapter) {
     platformIcon.textContent = adapter.icon
     platformName.textContent = adapter.name
+    applyBrand(adapter.brandColor)
     setUIState(STATE.IDLE)
   } else {
     platformName.textContent = 'Global Scraper'

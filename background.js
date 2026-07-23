@@ -5,6 +5,11 @@
  * State lives here, not in popup.
  */
 
+// Static imports — dynamic import() is disallowed in MV3 service workers.
+import { registry } from './core/registry.js'
+import './platforms/olx.js' // self-registers adapters into the registry
+// relying on the import keeps tree-shake from dropping side-effectful registration
+
 // ── State ──────────────────────────────────────────────
 const state = {
   status: 'idle',       // idle | scraping | complete | error
@@ -22,7 +27,14 @@ const state = {
 const popupPorts = new Set()
 
 function broadcastUpdate() {
-  const snapshot = { type: 'update', state: { ...state, results: undefined } }
+  const snapshot = {
+    type: 'update',
+    state: {
+      ...state,
+      // only ship results on complete — keep live updates light
+      results: state.status === 'complete' ? state.results : undefined,
+    },
+  }
   for (const p of popupPorts) {
     try { p.postMessage(snapshot) } catch { popupPorts.delete(p) }
   }
@@ -50,6 +62,10 @@ chrome.runtime.onConnect.addListener((port) => {
       case 'getHistory':
         loadHistory().then(entries => port.postMessage({ type: 'history', entries }))
         break
+      case 'getHistoryData':
+        loadHistoryData(msg.id).then(entry =>
+          port.postMessage({ type: 'historyData', entry }))
+        break
     }
   })
 
@@ -58,6 +74,32 @@ chrome.runtime.onConnect.addListener((port) => {
 
 // ── Start extraction ──────────────────────────────────
 async function handleStart(port, options) {
+  const opts = options || {}
+  // map popup fields → engine fields
+  const engineOpts = {
+    limit: opts.goal === undefined || opts.goal === Infinity || Number.isNaN(opts.goal)
+      ? Infinity
+      : Math.max(1, Math.floor(opts.goal)),
+    offset: Math.max(0, Math.floor(opts.offset) || 0),
+    batchSize: Math.max(1, Math.floor(opts.batchSize) || 20),
+    timeout: Math.min(120000, Math.max(1000, Math.floor(opts.timeout) || 15000)),
+    minimal: !!opts.minimal,
+    // generous page cap; limit trims the actual count
+    pages: 200,
+  }
+  // store normalized params on state for history + popup, persist last-used
+  state.goal = engineOpts.limit
+  state.minimal = engineOpts.minimal
+  state.options = { goal: opts.goal, offset: opts.offset, batchSize: opts.batchSize, timeout: opts.timeout, minimal: opts.minimal }
+  chrome.storage.local.set({
+    lastOptions: {
+      goal: String(opts.goal ?? ''),
+      offset: String(opts.offset ?? 0),
+      batchSize: String(opts.batchSize ?? 20),
+      timeout: String(opts.timeout ?? 15000),
+      minimal: engineOpts.minimal,
+    },
+  })
   setState({ status: 'scraping', phase: 'collect', error: null, results: null, done: 0, total: 0 })
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true })
@@ -68,8 +110,6 @@ async function handleStart(port, options) {
   state.activeTabId = tabs[0].id
 
   // detect platform from URL
-  const { registry } = await import(chrome.runtime.getURL('core/registry.js'))
-  await import(chrome.runtime.getURL('platforms/olx.js'))
   state.platform = registry.detect(tabs[0].url)?.key ?? null
   setState({ ...state })
 
@@ -86,7 +126,7 @@ async function handleStart(port, options) {
 
   // send start message
   try {
-    const resp = await chrome.tabs.sendMessage(tabs[0].id, { type: 'start', options })
+    const resp = await chrome.tabs.sendMessage(tabs[0].id, { type: 'start', options: engineOpts })
     if (!resp?.ok) throw new Error('no response')
   } catch {
     setState({ status: 'error', error: 'Content script não respondeu. Recarregue a página.' })
@@ -133,7 +173,7 @@ function saveHistoryEntry(count, goal, results) {
       id: Date.now().toString(36),
       platform: state.platform || 'unknown',
       count,
-      goal,
+      goal: Number.isFinite(goal) ? goal : '∞',
       timestamp: Date.now(),
       data: results,
     })
@@ -150,7 +190,22 @@ function deleteHistoryEntry(id) {
 
 async function loadHistory() {
   const { history } = await chrome.storage.local.get({ history: [] })
-  return history
+  // strip the heavy per-entry data payload — the list view only needs metadata
+  // (sending 50 × full result sets through postMessage would stall the popup)
+  return history.map(e => ({
+    id: e.id,
+    platform: e.platform,
+    count: e.count,
+    goal: e.goal,
+    timestamp: e.timestamp,
+  }))
+}
+
+// Load a single full entry (with its result data) on demand — to re-open,
+// download, or copy a past extraction without hauling all 50 over the port.
+async function loadHistoryData(id) {
+  const { history } = await chrome.storage.local.get({ history: [] })
+  return history.find(e => e.id === id) || null
 }
 
 // ── Tab close: auto-reset ─────────────────────────────

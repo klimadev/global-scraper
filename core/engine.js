@@ -19,7 +19,7 @@ export class ScraperEngine {
    * @param {number}  opts.offset    - skip first N ads (default 0)
    * @param {number}  opts.batchSize - detail fetch batch (default 10)
    * @param {number}  opts.timeout   - per-ad fetch timeout ms (default 15000)
-   * @param {boolean} opts.minimal   - skip detail fetch (default false)
+   * @param {boolean} opts.minimal   - token-saving mode: still enriches (description, adDate) but drops heavy adDetail/adProperties (default false)
    * @param {(phase:string, done:number, total:number) => void} onProgress
    */
   constructor(adapter, opts = {}, onProgress = null) {
@@ -37,7 +37,9 @@ export class ScraperEngine {
   async run(startUrl = location.href) {
     const ads = await this._collect(startUrl)
     this.onProgress('collect', ads.length, ads.length)
-    if (this.minimal || this.limit === 0) return ads
+    if (this.limit === 0) return ads
+    // both modes enrich (visit each ad) so description/adDate are always
+    // available; minimal only trims heavy fields to save tokens.
     return this._enrich(ads)
   }
 
@@ -54,7 +56,7 @@ export class ScraperEngine {
         if (all.length >= this.limit) break
         all.push(card)
       }
-      this.onProgress('collect', all.length, this.limit)
+      this.onProgress('collect', all.length, Number.isFinite(this.limit) ? this.limit : null)
       url = this.adapter.nextPageUrl(doc, p)
       if (!url) break
     }
@@ -73,14 +75,26 @@ export class ScraperEngine {
         batch.map(ad => this._fetchDetail(ad))
       )
       for (const f of fetched) {
-        results.push(f.status === 'fulfilled' ? f.value : {
-          ...f.reason.ad,
-          adDetail: { _error: f.reason.message },
-        })
+        const full = f.status === 'fulfilled'
+          ? f.value
+          : { ...f.reason.ad, adDetail: { _error: f.reason.message } }
+        results.push(this.minimal ? this._stripHeavy(full) : full)
       }
       this.onProgress('details', results.length, ads.length)
     }
     return results
+  }
+
+  /**
+   * Minimal mode keeps the human-readable core but drops the raw structured
+   * blobs (adDetail, adProperties) to save tokens.
+   * Kept: title, price, url, seller, location, img, description, adDate.
+   */
+  _stripHeavy(ad) {
+    const out = { ...ad }
+    delete out.adDetail
+    delete out.adProperties
+    return out
   }
 
   async _fetchDetail(ad) {

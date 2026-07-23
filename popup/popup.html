@@ -7,95 +7,102 @@
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
-  <div id="app">
-    <div class="header">
-      <h1><span id="platform-icon">🌐</span> <span id="platform-name">Global Scraper</span></h1>
-      <span class="version" id="platform-version">v0.1.0</span>
-    </div>
+  <main id="app" class="app" data-state="idle">
+    <header class="app__header">
+      <div class="brand-chip" id="brand-chip" aria-label="Plataforma detectada">
+        <span class="brand-chip__icon" id="platform-icon" aria-hidden="true">🌐</span>
+        <span class="brand-chip__name" id="platform-name">Global Scraper</span>
+      </div>
+      <span class="app__version" id="platform-version">v0.2.0</span>
+    </header>
 
-    <div id="state-unsupported" class="state-msg hidden">
-      <span class="icon">⚠️</span>
-      <p id="unsupported-msg">Navegue para uma página de busca compatível.</p>
-    </div>
+    <!-- Unsupported tab -->
+    <section class="state state--msg" id="state-unsupported" hidden>
+      <span class="state__glyph" aria-hidden="true">⚠️</span>
+      <p class="state__title">Página incompatível</p>
+      <p class="state__sub" id="unsupported-msg">Navegue para uma página de busca compatível.</p>
+    </section>
 
-    <div id="state-idle" class="state">
-      <form id="scrape-form">
-        <div class="form-row">
+    <!-- Idle: config -->
+    <section class="state" id="state-idle">
+      <form id="scrape-form" autocomplete="off">
+        <div class="grid">
           <div class="field">
             <label for="goal">Objetivo</label>
-            <input type="number" id="goal" min="1" placeholder="ilimitado" value="500">
+            <input type="number" id="goal" min="1" placeholder="ilimitado" value="500" inputmode="numeric">
           </div>
           <div class="field">
             <label for="offset">Offset</label>
-            <input type="number" id="offset" min="0" value="0">
+            <input type="number" id="offset" min="0" value="0" inputmode="numeric">
           </div>
-        </div>
-        <div class="form-row">
           <div class="field">
             <label for="batchSize">Lote</label>
-            <input type="number" id="batchSize" min="1" value="20">
+            <input type="number" id="batchSize" min="1" value="20" inputmode="numeric">
           </div>
           <div class="field">
             <label for="timeout">Timeout (ms)</label>
-            <input type="number" id="timeout" min="1000" max="120000" value="15000">
+            <input type="number" id="timeout" min="1000" max="120000" step="500" value="15000" inputmode="numeric">
           </div>
-          <div class="field checkbox-field">
-            <label>
+          <div class="field field--check">
+            <label class="check">
               <input type="checkbox" id="minimal" checked>
-              Modo mínimo
+              <span class="check__box" aria-hidden="true"></span>
+              <span class="check__label">Modo mínimo (economia de token: com descrição e data, sem detalhes crus)</span>
             </label>
           </div>
         </div>
-        <div class="error-msg hidden" id="form-error"></div>
-        <button type="submit" id="btn-extract" class="btn-primary">Extrair</button>
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+        <button type="submit" id="btn-extract" class="btn btn--primary">
+          <span class="btn__label">Extrair</span>
+        </button>
       </form>
 
-      <details class="history-panel">
-        <summary>Histórico</summary>
-        <div id="history-list" class="history-list"></div>
+      <details class="history">
+        <summary class="history__summary">Histórico</summary>
+        <div id="history-list" class="history__list"></div>
       </details>
-    </div>
+    </section>
 
-    <div id="state-scraping" class="state hidden">
-      <div class="progress-section">
-        <div class="spinner"></div>
-        <p class="progress-text" id="progress-text">Extraindo...</p>
-        <div class="progress-bar-wrapper">
-          <div class="progress-bar" id="progress-bar"></div>
+    <!-- Scraping -->
+    <section class="state" id="state-scraping" role="status" aria-live="polite" hidden>
+      <div class="progress">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="progress__text" id="progress-text">Extraindo…</p>
+        <div class="progress__track">
+          <div class="progress__fill" id="progress-bar"></div>
         </div>
-        <p class="progress-count" id="progress-count">0 / 0</p>
+        <p class="progress__count" id="progress-count">0 / 0</p>
       </div>
-    </div>
+    </section>
 
-    <div id="state-complete" class="state hidden">
-      <div class="result-section">
-        <div class="result-header">
-          <span class="icon">✅</span>
-          <p class="result-count" id="result-count">0 resultados</p>
-        </div>
-        <div class="result-actions">
-          <button id="btn-download" class="btn-primary">Download JSON</button>
-          <button id="btn-copy" class="btn-secondary">Copiar</button>
-          <button id="btn-new" class="btn-link">Nova extração</button>
-        </div>
-        <p class="copy-feedback hidden" id="copy-feedback">Copiado!</p>
-        <div class="preview" id="preview">
-          <table>
-            <thead><tr><th>Título</th><th>Preço</th><th>Local</th></tr></thead>
-            <tbody id="preview-body"></tbody>
-          </table>
-        </div>
+    <!-- Complete -->
+    <section class="state" id="state-complete" hidden>
+      <header class="result-header">
+        <span class="result-header__glyph" aria-hidden="true">✅</span>
+        <p class="result-header__count" id="result-count">0 resultados</p>
+      </header>
+      <div class="result-actions">
+        <button id="btn-download" class="btn btn--primary btn--sm">Download JSON</button>
+        <button id="btn-copy" class="btn btn--secondary btn--sm">Copiar</button>
+        <button id="btn-new" class="btn btn--link">Nova extração</button>
       </div>
-    </div>
+      <p class="copy-feedback" id="copy-feedback" aria-live="polite" hidden>Copiado!</p>
+      <div class="preview" id="preview">
+        <table>
+          <thead><tr><th>Título</th><th>Preço</th><th>Local</th></tr></thead>
+          <tbody id="preview-body"></tbody>
+        </table>
+      </div>
+    </section>
 
-    <div id="state-error" class="state hidden">
-      <div class="error-section">
-        <span class="icon">❌</span>
-        <p class="error-text" id="error-message">Erro desconhecido.</p>
-        <button id="btn-retry" class="btn-primary">Tentar novamente</button>
-      </div>
-    </div>
-  </div>
+    <!-- Error -->
+    <section class="state state--msg state--error" id="state-error" hidden>
+      <span class="state__glyph" aria-hidden="true">⨯</span>
+      <p class="state__title">Erro</p>
+      <p class="state__sub" id="error-message">Erro desconhecido.</p>
+      <button id="btn-retry" class="btn btn--primary btn--sm">Tentar novamente</button>
+    </section>
+  </main>
 
   <script src="popup.js"></script>
 </body>

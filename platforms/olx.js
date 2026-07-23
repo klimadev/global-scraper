@@ -10,6 +10,8 @@ class OlxAdapter extends PlatformAdapter {
   get name() { return 'OLX' }
   get key() { return 'olx' }
   get icon() { return '🏷️' }
+  /** OLX violet. Derived ramp tints the whole popup while OLX is the target. */
+  get brandColor() { return { l: 0.5, c: 0.26, h: 285 } }
 
   matches(url) {
     return /\.olx\.com\.br\//.test(url)

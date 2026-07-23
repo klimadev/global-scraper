@@ -11,6 +11,11 @@ export class PlatformAdapter {
   get key() { throw new Error('implement key') }
   /** Icon emoji or path */
   get icon() { return '🌐' }
+  /**
+   * Brand color as an OKLCH seed { l, c, h }. The popup derives the full
+   * accent ramp from this single seed. Override per platform.
+   */
+  get brandColor() { return { l: 0.52, c: 0.27, h: 285 } }
 
   /**
    * Check if this adapter handles the given URL.
